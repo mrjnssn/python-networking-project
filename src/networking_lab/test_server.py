@@ -1,38 +1,7 @@
 import socket
 import threading
+from protocol import send_message, receive_message
 
-HEADER_SIZE = 4
-
-def receive_exactly(connection, target_length):
-    msg = b""
-
-    while len(msg) < target_length:
-        chunk = connection.recv(target_length - len(msg))
-
-        if not chunk:
-            if not msg:
-                return b""
-            
-            raise ConnectionError("Connection closed before all bytes were received")
-
-        msg += chunk
-    
-    return msg
-
-def receive_message(sock):
-    # receive header
-    header_bytes = receive_exactly(sock, HEADER_SIZE)
-
-    if not header_bytes:
-        return None
-
-    payload_size = int(header_bytes.decode("utf-8"))
-
-    # receive paylaod
-    payload_in_bytes = receive_exactly(sock, payload_size)
-    payload = payload_in_bytes.decode("utf-8")
-
-    return payload
 
 def receive_messages(sock):
     while True:
@@ -45,6 +14,8 @@ def receive_messages(sock):
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
+sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
 sock.bind(("127.0.0.1", 5000))
 sock.listen()
 
@@ -55,7 +26,7 @@ connection, address = sock.accept()
 # create a thread object
 receive_thread = threading.Thread(
     target=receive_messages,
-    args=(sock,)
+    args=(connection,)
 )
 
 receive_thread.start()
@@ -66,9 +37,9 @@ while True:
     if payload == "/quit":
         break
     
-    send_message(sock, payload)
+    send_message(connection, payload)
 
-sock.close()
+connection.close()
 
 
 
