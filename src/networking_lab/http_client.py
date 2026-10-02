@@ -1,4 +1,5 @@
 import socket
+from protocol import receive_exactly
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
@@ -48,8 +49,40 @@ def receive_headers(sock, delimiter):
 
         headers[header_type] = header_value
     
-    
+def receive_chunked_body(sock):
+    body = b""
+
+    while True:
+        chunk = receive_until(sock, b"\r\n")
+        size = int(chunk, 16)
+        
+        if size == 0:
+            # consume trailers before returning body so that sock buffer is empty
+            while True:
+                trailer_line = receive_until(sock, b"\r\n")
+
+                if not trailer_line:
+                    return body
+            
+        chunk = receive_exactly(sock, size)
+        body += chunk
+
+        chunk_delimiter = receive_exactly(sock, len(b"\r\n"))
+
+        if chunk_delimiter != b"\r\n":
+            raise ValueError("HTTP framing is not valid.")
+
+
+
 
 http_version, status_code, reason_phrase, headers = receive_headers(sock, b"\r\n")
 
-print(headers)
+print(f"HTTP version: {http_version}")
+print(f"Status code:  {status_code}")
+print(f"Reason:       {reason_phrase}")
+print("\n")
+
+if headers[b"Transfer-Encoding"] == b"chunked":
+    body = receive_chunked_body(sock)
+
+    print(body)
