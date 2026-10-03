@@ -2,15 +2,17 @@ import socket
 import threading
 from protocol import send_message, receive_message
 
+def handle_client(connection, address):
+    try:
+        while True:
+            message = receive_message(connection)
 
-def receive_messages(sock):
-    while True:
-        message = receive_message(sock)
+            if message is None:
+                break
 
-        if message is None:
-            break
-
-        print(message)
+            print(message)
+    finally:
+        connection.close()
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
@@ -21,15 +23,19 @@ sock.listen()
 
 print("Waiting for a connection...")
 
-connection, address = sock.accept()
+while True:
+    connection, address = sock.accept()
 
-# create a thread object
-receive_thread = threading.Thread(
-    target=receive_messages,
-    args=(connection,)
-)
+    # create a thread object
+    receive_thread = threading.Thread(
+        target=handle_client,
+        args=(connection, address,)
+    )
 
-receive_thread.start()
+    receive_thread.start()
+
+    print(receive_thread)
+
 
 while True:
     payload = input("Message: ")
