@@ -1,3 +1,6 @@
+# Experimental HTTP/1.1 client built with raw sockets for learning HTTP framing
+# TODO: potentially expand this into an HTTP networking tool in the future
+
 import socket
 from protocol import receive_exactly
 
@@ -50,6 +53,7 @@ def receive_headers(sock, delimiter):
         headers[header_type] = header_value
     
 def receive_chunked_body(sock):
+    # framing strategy for chunked transfer encoding
     body = b""
 
     while True:
@@ -72,8 +76,16 @@ def receive_chunked_body(sock):
         if chunk_delimiter != b"\r\n":
             raise ValueError("HTTP framing is not valid.")
 
-
-
+def receive_body(sock, headers):
+    if headers.get(b"Transfer-Encoding") == b"chunked":
+        body = receive_chunked_body(sock)
+    elif headers.get(b"Content-Length"):
+        body_length = int(headers[b"Content-Length"])
+        body = receive_exactly(sock, body_length)
+    else:
+        raise ValueError("HTTP framing not valid.")
+    
+    return body
 
 http_version, status_code, reason_phrase, headers = receive_headers(sock, b"\r\n")
 
@@ -81,8 +93,7 @@ print(f"HTTP version: {http_version}")
 print(f"Status code:  {status_code}")
 print(f"Reason:       {reason_phrase}")
 print("\n")
+print(headers)
+print("\n")
 
-if headers[b"Transfer-Encoding"] == b"chunked":
-    body = receive_chunked_body(sock)
 
-    print(body)
