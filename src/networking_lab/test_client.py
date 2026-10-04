@@ -10,12 +10,33 @@ def receive_messages(sock):
         if message is None:
             break
 
-        print(message)
+        print(f"\n{message}\n")
 
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 sock.connect(("127.0.0.1", 5000))
+
+username = ""
+confirmation = ""
+
+while username == "":
+    username = input("Username: ")
+    username = username.strip()
+
+while True:
+    confirmation = input(f"Do you want to enter the chat as {username}? Y/N\n> ")
+    if confirmation.lower() == "n":
+        username = ""
+        while username == "":
+            username = input("Enter new username: ")
+            username = username.strip()
+    elif confirmation.lower() == "y":
+        send_message(sock, username)
+        print("\nWelcome. Start messaging.")
+        break
+    else:
+        print("Invalid input. Choose between (Y)es or (N)o.")
 
 # create a thread object
 receive_thread = threading.Thread(
@@ -26,7 +47,7 @@ receive_thread = threading.Thread(
 receive_thread.start()
 
 while True:
-    payload = input("Message: ")
+    payload = input("> ")
 
     if payload == "/quit":
         break

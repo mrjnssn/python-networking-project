@@ -4,6 +4,14 @@ from protocol import send_message, receive_message
 
 def handle_client(connection, address, clients, clients_lock):
     try:
+        username = receive_message(connection)
+
+        if username is None:
+            return
+
+        with clients_lock:
+            clients[connection] = username
+
         while True:
             message = receive_message(connection)
 
@@ -18,6 +26,9 @@ def handle_client(connection, address, clients, clients_lock):
 def broadcast(message, sender, clients, clients_lock):
     with clients_lock:
         clients_snapshot = clients.copy()
+        username = clients[sender]
+    
+    message = f"{username}: {message}"
     
     for client in clients_snapshot:
         if client == sender:
@@ -30,7 +41,7 @@ def broadcast(message, sender, clients, clients_lock):
 def remove_client(connection, clients, clients_lock):
     with clients_lock:
         if connection in clients:
-            clients.remove(connection)
+            del clients[connection]
     connection.close()
 
 
@@ -42,7 +53,7 @@ sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 sock.bind(("127.0.0.1", 5000))
 sock.listen()
 
-clients = []
+clients = {}
 clients_lock = threading.Lock()
 
 print("Waiting for a connection...")
@@ -55,10 +66,6 @@ while True:
         target=handle_client,
         args=(connection, address, clients, clients_lock)
     )
-    
-    with clients_lock:
-        clients.append(connection)
-        print(clients)
 
     receive_thread.start()
 
