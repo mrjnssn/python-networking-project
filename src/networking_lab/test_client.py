@@ -33,4 +33,6 @@ while True:
 
     send_message(sock, payload)
 
+sock.shutdown(socket.SHUT_RDWR)
+receive_thread.join()
 sock.close()

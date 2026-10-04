@@ -13,9 +13,7 @@ def handle_client(connection, address, clients, clients_lock):
             print(message)
             broadcast(message, connection, clients, clients_lock)
     finally:
-        with clients_lock:
-            clients.remove(connection)
-        connection.close()
+        remove_client(connection, clients, clients_lock)
 
 def broadcast(message, sender, clients, clients_lock):
     with clients_lock:
@@ -24,9 +22,16 @@ def broadcast(message, sender, clients, clients_lock):
     for client in clients_snapshot:
         if client == sender:
             continue
-        else:
+        try:
             send_message(client, message)
+        except OSError:
+            remove_client(client, clients, clients_lock)
 
+def remove_client(connection, clients, clients_lock):
+    with clients_lock:
+        if connection in clients:
+            clients.remove(connection)
+    connection.close()
 
 
 
