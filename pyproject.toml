@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lan-chat-cli"
+version = "0.1.0"
+description = "A simple TCP-based LAN chat application from your CLI"
+requires-python = ">3.10"
+
+[project.scripts]
+lan-chat-server = "lan_chat.server:main"
+lan-chat-client = "lan_chat.client:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
