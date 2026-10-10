@@ -1,4 +1,6 @@
 
+import json
+
 HEADER_SIZE = 4
 
 def receive_exactly(connection, target_length):
@@ -44,3 +46,17 @@ def send_message(sock, payload):
     packet = header_in_bytes + payload_in_bytes
 
     sock.sendall(packet)
+
+def send_structured_message(sock, message):
+    payload = json.dumps(message)
+    send_message(sock, payload)
+
+def receive_structured_message(sock):
+    payload = receive_message(sock)
+
+    if payload is None:
+        return None
+
+    payload_decoded = json.loads(payload)
+
+    return payload_decoded

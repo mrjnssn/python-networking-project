@@ -1,16 +1,35 @@
 import socket
 import threading
-from protocol import send_message, receive_message
+from protocol import receive_structured_message, send_structured_message
 
 
 def receive_messages(sock):
     while True:
-        message = receive_message(sock)
+        message = receive_structured_message(sock)
 
         if message is None:
-            break
+            return
 
-        print(f"\n{message}\n")
+        if not isinstance(message, dict):
+            continue
+
+        if message.get("type") != "CHAT":
+            continue
+
+        sender = message.get("sender")
+
+        if not isinstance(sender, str) or not sender.strip():
+            continue
+
+        sender = sender.strip()
+
+        payload = message.get("content")
+
+        if not isinstance(payload, str) or not payload.strip():
+            continue
+        
+        print(f"{sender}: {payload}")
+
 
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -32,7 +51,11 @@ while True:
             username = input("Enter new username: ")
             username = username.strip()
     elif confirmation.lower() == "y":
-        send_message(sock, username)
+        message = {
+            "type": "JOIN",
+            "username": username
+        }
+        send_structured_message(sock, message)
         print("\nWelcome. Start messaging.")
         break
     else:
@@ -47,12 +70,17 @@ receive_thread = threading.Thread(
 receive_thread.start()
 
 while True:
-    payload = input("> ")
+    payload = input(" ")
 
     if payload == "/quit":
         break
 
-    send_message(sock, payload)
+    message = {
+        "type": "CHAT",
+        "content": payload
+    }
+
+    send_structured_message(sock, message)
 
 sock.shutdown(socket.SHUT_RDWR)
 receive_thread.join()

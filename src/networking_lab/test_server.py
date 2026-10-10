@@ -1,40 +1,64 @@
 import socket
 import threading
-from protocol import send_message, receive_message
+from protocol import receive_structured_message, send_structured_message
 
 def handle_client(connection, address, clients, clients_lock):
     try:
-        username = receive_message(connection)
+        message = receive_structured_message(connection)
 
-        if username is None:
+        if not isinstance(message, dict):
             return
+
+        if message.get("type") != "JOIN":
+            return
+
+        username = message.get("username")
+
+        if not isinstance(username, str) or not username.strip():
+            return
+
+        username = username.strip()
 
         with clients_lock:
             clients[connection] = username
 
         while True:
-            message = receive_message(connection)
+            message = receive_structured_message(connection)
 
-            if message is None:
+            if not isinstance(message, dict):
                 break
 
-            print(message)
-            broadcast(message, connection, clients, clients_lock)
+            if message.get("type") == "CHAT":
+                payload = message.get("content")
+
+                if not isinstance(payload, str):
+                    continue
+
+                print(payload)
+                broadcast(payload, connection, clients, clients_lock)
     finally:
         remove_client(connection, clients, clients_lock)
 
 def broadcast(message, sender, clients, clients_lock):
     with clients_lock:
         clients_snapshot = clients.copy()
-        username = clients[sender]
     
-    message = f"{username}: {message}"
+    username = clients_snapshot.get(sender)
+
+    if username is None:
+        return
+
+    message = {
+        "type": "CHAT",
+        "sender": username,
+        "content":  message
+    }
     
     for client in clients_snapshot:
         if client == sender:
             continue
         try:
-            send_message(client, message)
+            send_structured_message(client, message)
         except OSError:
             remove_client(client, clients, clients_lock)
 
