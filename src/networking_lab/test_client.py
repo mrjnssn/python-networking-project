@@ -13,22 +13,33 @@ def receive_messages(sock):
         if not isinstance(message, dict):
             continue
 
-        if message.get("type") != "CHAT":
-            continue
+        message_type = message.get("type")
 
-        sender = message.get("sender")
+        if message_type == "CHAT":
+            sender = message.get("sender")
 
-        if not isinstance(sender, str) or not sender.strip():
-            continue
+            if not isinstance(sender, str) or not sender.strip():
+                continue
 
-        sender = sender.strip()
+            sender = sender.strip()
 
-        payload = message.get("content")
+            payload = message.get("content")
 
-        if not isinstance(payload, str) or not payload.strip():
-            continue
-        
-        print(f"{sender}: {payload}")
+            if not isinstance(payload, str) or not payload.strip():
+                continue
+            
+            print(f"{sender}: {payload}")
+        elif message_type == "USER_LIST":
+            usernames = message.get("users")
+
+            if isinstance(usernames, list) and all(isinstance(username, str) and username.strip() for username in usernames):
+                print(f"Online users ({len(usernames)}):")
+
+                for username in usernames:
+                    print(f"- {username}")
+
+
+
 
 
 
@@ -70,15 +81,20 @@ receive_thread = threading.Thread(
 receive_thread.start()
 
 while True:
-    payload = input(" ")
+    payload = input("")
 
     if payload == "/quit":
         break
-
-    message = {
-        "type": "CHAT",
-        "content": payload
-    }
+    
+    if payload == "/users":
+        message = {
+            "type": "LIST_USERS",
+        }
+    else:
+        message = {
+            "type": "CHAT",
+            "content": payload
+        }
 
     send_structured_message(sock, message)
 

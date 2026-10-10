@@ -28,7 +28,9 @@ def handle_client(connection, address, clients, clients_lock):
             if not isinstance(message, dict):
                 break
 
-            if message.get("type") == "CHAT":
+            message_type = message.get("type")
+
+            if message_type == "CHAT":
                 payload = message.get("content")
 
                 if not isinstance(payload, str):
@@ -36,6 +38,9 @@ def handle_client(connection, address, clients, clients_lock):
 
                 print(payload)
                 broadcast(payload, connection, clients, clients_lock)
+            elif message_type == "LIST_USERS":
+                send_user_list(connection, clients, clients_lock)
+
     finally:
         remove_client(connection, clients, clients_lock)
 
@@ -67,6 +72,17 @@ def remove_client(connection, clients, clients_lock):
         if connection in clients:
             del clients[connection]
     connection.close()
+
+def send_user_list(connection, clients, clients_lock):
+    with clients_lock:
+        usernames = list(clients.values())
+    
+    message = {
+        "type": "USER_LIST",
+        "users": usernames
+    }
+
+    send_structured_message(connection, message)
 
 
 
