@@ -86,15 +86,14 @@ def send_user_list(connection, clients, clients_lock):
     send_structured_message(connection, message)
 
 
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
 parser = argparse.ArgumentParser(description="TCP chat server")
 parser.add_argument("--host", default="127.0.0.1")
 parser.add_argument("--port", type=int, default=5000)
 
 args = parser.parse_args()
-
-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
 sock.bind((args.host, args.port))
 sock.listen()

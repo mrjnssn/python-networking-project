@@ -1,5 +1,6 @@
 import socket
 import threading
+import argparse
 from .protocol import receive_structured_message, send_structured_message
 
 
@@ -40,12 +41,15 @@ def receive_messages(sock):
 
 
 
-
-
-
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-sock.connect(("127.0.0.1", 5000))
+parser = argparse.ArgumentParser(description="TCP chat client")
+parser.add_argument("--host", default="127.0.0.1")
+parser.add_argument("--port", type=int, default=5000)
+
+args = parser.parse_args()
+
+sock.connect((args.host, args.port))
 
 username = ""
 confirmation = ""
