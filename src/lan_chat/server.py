@@ -3,7 +3,7 @@ import threading
 import argparse
 from .protocol import receive_structured_message, send_structured_message
 
-def handle_client(connection, address, clients, clients_lock):
+def handle_client(connection, connections, connections_lock, address, clients, clients_lock, shutdown_event):
     try:
         connection.settimeout(15)
         message = receive_structured_message(connection)
@@ -44,12 +44,16 @@ def handle_client(connection, address, clients, clients_lock):
                 broadcast(payload, connection, clients, clients_lock)
             elif message_type == "LIST_USERS":
                 send_user_list(connection, clients, clients_lock)
-    
     except socket.timeout:
         print(f"Client {address} timed out during JOIN handshake.")
-    
+    except OSError:
+        if not shutdown_event.is_set():
+            print(f"Connection error with {address}: {error}")
     finally:
         remove_client(connection, clients, clients_lock)
+
+        with connections_lock:
+            connections.discard(connection)
 
 def broadcast(message, sender, clients, clients_lock):
     with clients_lock:
@@ -105,8 +109,15 @@ sock.bind((args.host, args.port))
 sock.listen()
 print(f"Listening on {args.host}, port {args.port}")
 
+connections = set()
+connections_lock = threading.Lock()
+
 clients = {}
 clients_lock = threading.Lock()
+
+client_threads = []
+
+shutdown_event = threading.Event()
 
 print("Waiting for a connection...")
 
@@ -114,20 +125,42 @@ try:
     while True:
         connection, address = sock.accept()
 
+        with connections_lock:
+            connections.add(connection)
+
         # create a thread object
         receive_thread = threading.Thread(
             target=handle_client,
-            args=(connection, address, clients, clients_lock)
+            args=(connection, connections, connections_lock, 
+            address, clients, clients_lock, shutdown_event)
         )
 
         receive_thread.start()
+        client_threads.append(receive_thread)
 
         print(receive_thread)
 
 except KeyboardInterrupt:
     print("\nServer shutting down...")
+    shutdown_event.set()
 
 finally:
+    with connections_lock:
+        connections_snapshot = list(connections)
+
+    print(f"Closing {len(connections_snapshot)} active connection(s)...")
+
+    for connection in connections_snapshot:
+        try:
+            connection.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+        finally:
+            connection.close()
+    
+    for thread in client_threads:
+        thread.join()
+
     sock.close()
     
 
