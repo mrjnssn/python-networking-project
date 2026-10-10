@@ -1,5 +1,6 @@
 import socket
 import threading
+import argparse
 from protocol import receive_structured_message, send_structured_message
 
 def handle_client(connection, address, clients, clients_lock):
@@ -85,31 +86,44 @@ def send_user_list(connection, clients, clients_lock):
     send_structured_message(connection, message)
 
 
+parser = argparse.ArgumentParser(description="TCP chat server")
+parser.add_argument("--host", default="127.0.0.1")
+parser.add_argument("--port", type=int, default=5000)
+
+args = parser.parse_args()
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-sock.bind(("127.0.0.1", 5000))
+sock.bind((args.host, args.port))
 sock.listen()
+print(f"Listening on {args.host}, port {args.port}")
 
 clients = {}
 clients_lock = threading.Lock()
 
 print("Waiting for a connection...")
 
-while True:
-    connection, address = sock.accept()
+try:
+    while True:
+        connection, address = sock.accept()
 
-    # create a thread object
-    receive_thread = threading.Thread(
-        target=handle_client,
-        args=(connection, address, clients, clients_lock)
-    )
+        # create a thread object
+        receive_thread = threading.Thread(
+            target=handle_client,
+            args=(connection, address, clients, clients_lock)
+        )
 
-    receive_thread.start()
+        receive_thread.start()
 
-    print(receive_thread)
+        print(receive_thread)
+
+except KeyboardInterrupt:
+    print("\nServer shutting down...")
+
+finally:
+    sock.close()
     
 
 
