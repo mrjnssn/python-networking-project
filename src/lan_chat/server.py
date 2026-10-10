@@ -1,6 +1,7 @@
 import socket
 import threading
 import argparse
+
 from .protocol import receive_structured_message, send_structured_message
 
 def handle_client(connection, connections, connections_lock, address, clients, clients_lock, shutdown_event):
@@ -45,7 +46,8 @@ def handle_client(connection, connections, connections_lock, address, clients, c
             elif message_type == "LIST_USERS":
                 send_user_list(connection, clients, clients_lock)
     except socket.timeout:
-        print(f"Client {address} timed out during JOIN handshake.")
+        if not shutdown_event.is_set():
+            print(f"Client {address} timed out during JOIN handshake.")
     except OSError:
         if not shutdown_event.is_set():
             print(f"Connection error with {address}: {error}")
@@ -96,77 +98,78 @@ def send_user_list(connection, clients, clients_lock):
     send_structured_message(connection, message)
 
 
-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+def main():
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-parser = argparse.ArgumentParser(description="TCP chat server")
-parser.add_argument("--host", default="127.0.0.1")
-parser.add_argument("--port", type=int, default=5000)
+    parser = argparse.ArgumentParser(description="TCP chat server")
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--port", type=int, default=5000)
 
-args = parser.parse_args()
+    args = parser.parse_args()
 
-sock.bind((args.host, args.port))
-sock.listen()
-print(f"Listening on {args.host}, port {args.port}")
+    sock.bind((args.host, args.port))
+    sock.listen()
+    print(f"Listening on {args.host}, port {args.port}")
 
-connections = set()
-connections_lock = threading.Lock()
+    connections = set()
+    connections_lock = threading.Lock()
 
-clients = {}
-clients_lock = threading.Lock()
+    clients = {}
+    clients_lock = threading.Lock()
 
-client_threads = []
+    client_threads = []
 
-shutdown_event = threading.Event()
+    shutdown_event = threading.Event()
 
-print("Waiting for a connection...")
+    print("Waiting for a connection...")
 
-try:
-    while True:
-        connection, address = sock.accept()
+    try:
+        while True:
+            connection, address = sock.accept()
 
+            with connections_lock:
+                connections.add(connection)
+
+            # create a thread object
+            receive_thread = threading.Thread(
+                target=handle_client,
+                args=(connection, connections, connections_lock, 
+                address, clients, clients_lock, shutdown_event)
+            )
+
+            receive_thread.start()
+            client_threads.append(receive_thread)
+
+            print(receive_thread)
+
+    except KeyboardInterrupt:
+        print("\nServer shutting down...")
+        shutdown_event.set()
+
+    finally:
         with connections_lock:
-            connections.add(connection)
+            connections_snapshot = list(connections)
 
-        # create a thread object
-        receive_thread = threading.Thread(
-            target=handle_client,
-            args=(connection, connections, connections_lock, 
-            address, clients, clients_lock, shutdown_event)
-        )
+        print(f"Closing {len(connections_snapshot)} active connection(s)...")
 
-        receive_thread.start()
-        client_threads.append(receive_thread)
+        for connection in connections_snapshot:
+            try:
+                connection.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+            finally:
+                connection.close()
+        
+        for thread in client_threads:
+            thread.join()
 
-        print(receive_thread)
-
-except KeyboardInterrupt:
-    print("\nServer shutting down...")
-    shutdown_event.set()
-
-finally:
-    with connections_lock:
-        connections_snapshot = list(connections)
-
-    print(f"Closing {len(connections_snapshot)} active connection(s)...")
-
-    for connection in connections_snapshot:
-        try:
-            connection.shutdown(socket.SHUT_RDWR)
-        except OSError:
-            pass
-        finally:
-            connection.close()
-    
-    for thread in client_threads:
-        thread.join()
-
-    sock.close()
+        sock.close()
     
 
 
-
-
+if __name__ == "__main__":
+    main()
 
 
 
