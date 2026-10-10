@@ -5,6 +5,7 @@ from .protocol import receive_structured_message, send_structured_message
 
 def handle_client(connection, address, clients, clients_lock):
     try:
+        connection.settimeout(15)
         message = receive_structured_message(connection)
 
         if not isinstance(message, dict):
@@ -22,6 +23,8 @@ def handle_client(connection, address, clients, clients_lock):
 
         with clients_lock:
             clients[connection] = username
+        
+        connection.settimeout(None)
 
         while True:
             message = receive_structured_message(connection)
@@ -41,7 +44,10 @@ def handle_client(connection, address, clients, clients_lock):
                 broadcast(payload, connection, clients, clients_lock)
             elif message_type == "LIST_USERS":
                 send_user_list(connection, clients, clients_lock)
-
+    
+    except socket.timeout:
+        print(f"Client {address} timed out during JOIN handshake.")
+    
     finally:
         remove_client(connection, clients, clients_lock)
 
