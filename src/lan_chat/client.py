@@ -1,6 +1,6 @@
 import socket
 import threading
-from protocol import receive_structured_message, send_structured_message
+from .protocol import receive_structured_message, send_structured_message
 
 
 def receive_messages(sock):

@@ -1,7 +1,7 @@
 import socket
 import threading
 import argparse
-from protocol import receive_structured_message, send_structured_message
+from .protocol import receive_structured_message, send_structured_message
 
 def handle_client(connection, address, clients, clients_lock):
     try:
